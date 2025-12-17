@@ -1,0 +1,105 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id String @id @default(uuid())
+  email String @unique
+  passwordHash String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orgs Org[] @relation("OrgOwner")
+  orgsJoined Org[] @relation("OrgMembers")
+  memberships Membership[] @relation("UserMemberships")
+  refreshTokens RefreshToken[] @relation("UserRefreshTokens")
+  auditLogs AuditLog[] @relation("UserAuditLogs")
+}
+
+model Org {
+  id String @id @default(uuid())
+  name String
+  slug String @unique
+  ownerId String
+  owner User @relation("OrgOwner", fields: [ownerId], references: [id])
+  members User[] @relation("OrgMembers")
+  memberships Membership[] @relation("OrgMemberships")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Membership {
+  userId String
+  orgId String
+  roleId String
+  user User @relation("UserMemberships", fields: [userId], references: [id], onDelete: Cascade)
+  org Org @relation("OrgMemberships", fields: [orgId], references: [id], onDelete: Cascade)
+  role Role @relation("MembershipRoles", fields: [roleId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@id([userId, orgId, roleId])
+}
+
+model Role {
+  id String @id @default(uuid())
+  name String
+  rolePermissions RolePermission[] @relation("RoleRolePermissions")
+  memberships Membership[] @relation("MembershipRoles")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Permission {
+  id String @id @default(uuid())
+  name String
+  rolePermissions RolePermission[] @relation("PermissionRolePermissions")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RolePermission {
+  id String @id @default(uuid())
+  name String
+  roleId String
+  permissionId String
+  role Role @relation("RoleRolePermissions", fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation("PermissionRolePermissions", fields: [permissionId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RefreshToken {
+  id String @id @default(uuid())
+  tokenHash String @unique
+  userId String
+  user User @relation("UserRefreshTokens", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+  expiresAt DateTime
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id String @id @default(uuid())
+  userId String
+  user User @relation("UserAuditLogs", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Job {
+  id String @id @default(uuid())
+  name String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
