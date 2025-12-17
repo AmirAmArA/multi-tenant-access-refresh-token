@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { requireAuth } from "../../plugins/authGuard";
 
 /*
@@ -16,12 +16,12 @@ export default async function meRoutes(app: FastifyInstance) {
   app.get(
     "/me",
     { preHandler: requireAuth },
-    async (request, reply) => {
+    async (request: FastifyRequest, reply) => {
       // user is attached by authGuard as request.user
       // returning sub and email as /me payload
-      const user = request.user as { sub: string; email: string };
+      const user = request.user as { userId: string; email?: string };
       return {
-        id: user.sub,
+        id: user.userId,
         email: user.email,
       };
     }

@@ -6,6 +6,7 @@ import prismaPlugin from "./plugins/prisma";
 import redisPlugin from "./plugins/redis";
 import authRoutes from "./modules/auth/routes";
 import meRoutes from "./modules/me/routes";
+import orgRoutes from "./modules/org/routes";
 
 const app = Fastify({ logger: true });
 
@@ -17,6 +18,7 @@ async function start() {
 
   await app.register(authRoutes);
   await app.register(meRoutes);
+  await app.register(orgRoutes);
 
   app.get("/health", async () => ({ ok: true }));
 

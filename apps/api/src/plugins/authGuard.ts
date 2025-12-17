@@ -21,8 +21,11 @@ export async function requireAuth(
     // Verify JWT token
     const decoded = await request.server.jwt.verify<JwtAccessPayload>(token);
 
-    // Attach user info to request
-    request.user = decoded;
+    // Normalize JWT payload (sub -> userId) and attach user info to request
+    request.user = {
+      userId: decoded.sub,
+      email: decoded.email,
+    };
 
     // Continue to next handler
   } catch (error) {
