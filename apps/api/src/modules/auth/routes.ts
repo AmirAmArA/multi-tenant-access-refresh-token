@@ -1,13 +1,64 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { login, refresh, revokeRefreshToken } from "./service";
-import { InvalidCredentialsError, InvalidTokenError } from "../../common/errors";
+import { login, refresh, register, revokeRefreshToken } from "./service";
+import { DuplicateEmailError, InvalidCredentialsError, InvalidTokenError } from "../../common/errors";
 
 interface LoginBody {
   email: string;
   password: string;
 }
 
+interface RegisterBody {
+  email: string;
+  password: string;
+}
+
 export default async function authRoutes(app: FastifyInstance) {
+  app.post(
+    "/auth/register",
+    async (
+      request: FastifyRequest<{ Body: RegisterBody }>,
+      reply: FastifyReply
+    ) => {
+      try {
+        const { email, password } = request.body;
+
+        // 1. Check if user already exists
+        // 2. Hash password
+        // 3. Create user
+        // 4. Create access token
+        // 5. Create refresh token row (tokenHash + expiry)
+        const { accessToken, refreshToken } = await register(
+          app,
+          email,
+          password
+        );
+
+        // 6. Set HttpOnly cookie: refresh_token=<raw> (raw only in cookie)
+        const isProduction = process.env.NODE_ENV === "production";
+        reply.setCookie("refresh_token", refreshToken, {
+          httpOnly: true,
+          sameSite: "lax",
+          secure: isProduction,
+          path: "/",
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        });
+
+        // 7. Return { accessToken }
+        reply.status(201).send({ accessToken });
+      } catch (error) {
+        if (error instanceof DuplicateEmailError) {
+          reply.status(409).send({ error: error.message });
+          return;
+        }
+        app.log.error(error, "Registration error");
+        reply.status(500).send({ 
+          error: "Internal server error",
+          message: error instanceof Error ? error.message : "Unknown error"
+        });
+      }
+    }
+  );
+
   app.post(
     "/auth/login",
     async (

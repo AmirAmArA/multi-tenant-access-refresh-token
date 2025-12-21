@@ -1,8 +1,74 @@
 import type { FastifyInstance } from "fastify";
-import { InvalidCredentialsError, InvalidTokenError } from "../../common/errors";
-import { generateRefreshToken, hashToken, signAccessToken, verifyPassword } from "./utils";
+import { DuplicateEmailError, InvalidCredentialsError, InvalidTokenError } from "../../common/errors";
+import { generateRefreshToken, hashPassword, hashToken, signAccessToken, verifyPassword } from "./utils";
 
 const REFRESH_TOKEN_TTL_DAYS = Number(process.env.REFRESH_TOKEN_TTL_DAYS ?? 7);
+
+/*
+
+@description Register a new user and return access and refresh tokens
+Creates a new user account with the provided email and password,
+then automatically logs them in by generating access and refresh tokens.
+
+@param fastify Fastify instance
+@param email User email
+@param password User password
+@returns Access and refresh tokens
+
+*/
+export async function register(
+  fastify: FastifyInstance,
+  email: string,
+  password: string
+): Promise<{ accessToken: string; refreshToken: string }> {
+  // Check if user already exists
+  const existingUser = await fastify.prisma.user.findUnique({
+    where: { email },
+  });
+  if (existingUser) {
+    throw new DuplicateEmailError();
+  }
+
+  // Hash password
+  const passwordHash = await hashPassword(password);
+
+  // Create user
+  const user = await fastify.prisma.user.create({
+    data: {
+      email,
+      passwordHash,
+    },
+  });
+
+  // Create access token
+  const accessToken = await signAccessToken(fastify, {
+    sub: user.id,
+    email: user.email,
+  });
+
+  // Generate random refresh token (not JWT)
+  const refreshToken = generateRefreshToken();
+  const tokenHash = hashToken(refreshToken);
+
+  // Calculate expiration date
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_TTL_DAYS);
+
+  // Store refresh token hash in DB
+  await fastify.prisma.refreshToken.create({
+    data: {
+      tokenHash,
+      userId: user.id,
+      expiresAt,
+      // revokedAt is optional, defaults to null (not revoked)
+    },
+  });
+
+  return {
+    accessToken,
+    refreshToken, // Return plain token (not hash) to client
+  };
+}
 
 /*
 
